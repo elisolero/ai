@@ -15,12 +15,14 @@ let trainButton;
 let w  = window.innerWidth;
 let h  = window.innerWidth * 0.75;
 
-
+navigator.mediaDevices.enumerateDevices().then(function(e) {
+  debugger;
+  // gotSources(e);
+});
 function modelReady() {
   console.log('Model is ready!!!');
     classifier.load('model.json', customModelReady);
 }
-
 
 function customModelReady() {
   console.log('Custom Model is ready!!!');
@@ -52,7 +54,7 @@ function gotResults(error, result) {
   }
 }
 
-function setup() {6
+function setup() {
   createCanvas(w,h);
   video = createCapture(VIDEO);
   video.hide();
