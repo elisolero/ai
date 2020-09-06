@@ -1,73 +1,61 @@
+
 'use strict';
 
 var videoElement = document.querySelector('video');
 var audioSelect = document.querySelector('select#audioSource');
 var videoSelect = document.querySelector('select#videoSource');
 
-navigator.getUserMedia = navigator.getUserMedia ||
-  navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+audioSelect.onchange = getStream;
+videoSelect.onchange = getStream;
 
-function gotSources(sourceInfos) {
-  for (var i = 0; i !== sourceInfos.length; ++i) {
-    var sourceInfo = sourceInfos[i];
-    var option = document.createElement('option');
-    option.value = sourceInfo.deviceId;
-     if (sourceInfo.kind === 'audiooutput') {
-       option.text = sourceInfo.label || 'microphone ' +
-         (audioSelect.length + 1);
-       audioSelect.appendChild(option);
-     } else 
-    if (sourceInfo.kind === 'videoinput') {
-      console.log(sourceInfo);
-      option.text = sourceInfo.label || 'camera ' + (videoSelect.length + 1);
+getStream().then(getDevices).then(gotDevices);
+
+function getDevices() {
+  // AFAICT in Safari this only gets default devices until gUM is called :/
+  return navigator.mediaDevices.enumerateDevices();
+}
+
+function gotDevices(deviceInfos) {
+  window.deviceInfos = deviceInfos; // make available to console
+  console.log('Available input and output devices:', deviceInfos);
+  for (const deviceInfo of deviceInfos) {
+    const option = document.createElement('option');
+    option.value = deviceInfo.deviceId;
+    if (deviceInfo.kind === 'audioinput') {
+      option.text = deviceInfo.label || `Microphone ${audioSelect.length + 1}`;
+      audioSelect.appendChild(option);
+    } else if (deviceInfo.kind === 'videoinput') {
+      option.text = deviceInfo.label || `Camera ${videoSelect.length + 1}`;
       videoSelect.appendChild(option);
-    } else {
-      console.log('Some other kind of source: ', sourceInfo);
     }
   }
 }
 
-navigator.mediaDevices.enumerateDevices().then(function(e) {
-  gotSources(e);
-});
-
-function successCallback(stream) {
-    videoElement.srcObject = stream;
-    videoElement.onloadedmetadata = function(e) {
-        videoElement.play();
-    };
-}
-
-function errorCallback(error) {
-  console.log('navigator.getUserMedia error: ', error);
-}
-
-function start() {
+function getStream() {
   if (window.stream) {
-    videoElement.src = null;
-    window.stream.getTracks().forEach(function(track) {
+    window.stream.getTracks().forEach(track => {
       track.stop();
     });
   }
-  var audioSource = audioSelect.value;
-  var videoSource = videoSelect.value;
-
-  var constraints = {
-    audio: {
-      optional: [{
-        sourceId: audioSource
-      }]
-    },
-    video: {
-      optional: [{
-        sourceId: videoSource
-      }]
-    }
+  const audioSource = audioSelect.value;
+  const videoSource = videoSelect.value;
+  const constraints = {
+    audio: {deviceId: audioSource ? {exact: audioSource} : undefined},
+    video: {deviceId: videoSource ? {exact: videoSource} : undefined}
   };
-  navigator.getUserMedia(constraints, successCallback, errorCallback);
+  return navigator.mediaDevices.getUserMedia(constraints).
+    then(gotStream).catch(handleError);
 }
 
- audioSelect.onchange = start;
-videoSelect.onchange = start;
+function gotStream(stream) {
+  window.stream = stream; // make stream available to console
+  audioSelect.selectedIndex = [...audioSelect.options].
+    findIndex(option => option.text === stream.getAudioTracks()[0].label);
+  videoSelect.selectedIndex = [...videoSelect.options].
+    findIndex(option => option.text === stream.getVideoTracks()[0].label);
+  videoElement.srcObject = stream;
+}
 
-start();
+function handleError(error) {
+  console.error('Error: ', error);
+}
