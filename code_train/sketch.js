@@ -56,8 +56,16 @@ function gotResults(error, result) {
 
 function setup() {
   createCanvas(w,h);
-  video = createCapture(VIDEO);
+  video = createCapture({
+    audio: false,
+    video: {
+      facingMode: {
+        exact: "environment"
+      }
+    }
+  });
   video.hide();
+  debugger;
   background(0);
   mobilenet = ml5.featureExtractor('MobileNet', modelReady);
   classifier = mobilenet.classification(video, videoReady);
